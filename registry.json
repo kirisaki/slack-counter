@@ -1,0 +1,16 @@
+[
+  {
+    "name": "${service}",
+    "image": "${image}",
+    "cpu": 10,
+    "essential": true,
+    "networkMode" : "bridge",
+    "portMappings": [
+      {
+        "containerPort": 443,
+        "hostPort": 443
+      }
+    ],
+    "memory": 512
+  }
+]

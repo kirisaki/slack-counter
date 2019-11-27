@@ -1,6 +1,14 @@
-FROM alpine:latest
+FROM golang:1.13.4-alpine3.10 AS builder
 
-COPY slack-counter /bin/slack-counter
-RUN chmod u+x /bin/slack-counter
+WORKDIR /go/src/slack-counter
 
-ENTRYPOINT ["/bin/slack-counter"]
+COPY . .
+RUN mkdir -p /build
+RUN go build -o=/build/slack-counter
+
+FROM alpine:3.10.2
+
+COPY --from=builder /build/slack-counter /build/slack-counter
+RUN chmod u+x /build/slack-counter
+
+ENTRYPOINT ["/build/slack-counter"]
