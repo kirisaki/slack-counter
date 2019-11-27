@@ -12,7 +12,7 @@ jobs:
       - run:
           name: Build exe binary
           command: go build
-
+      - run:
           name: Setup common environment variables
           command: |
             echo 'export FULL_IMAGE_NAME="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1}"' >> $BASH_ENV
