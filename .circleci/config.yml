@@ -12,19 +12,27 @@ jobs:
       - run:
           name: Build exe binary
           command: go build
+
       - run:
           name: Setup common environment variables
           command: |
             echo 'export FULL_IMAGE_NAME="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1}"' >> $BASH_ENV
+
+      - run:
+          name: ll
+          command: ls -al
+
       - run:
           name: Build image
           command: |
             docker build -t $FULL_IMAGE_NAME .
+
       - run:
           name: Save image to an archive
           command: |
             mkdir docker-image
             docker save -o docker-image/image.tar $FULL_IMAGE_NAME
+
       - persist_to_workspace:
           root: .
           paths:
