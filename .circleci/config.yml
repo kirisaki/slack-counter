@@ -19,10 +19,6 @@ jobs:
             echo 'export FULL_IMAGE_NAME="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_SHA1}"' >> $BASH_ENV
 
       - run:
-          name: ll
-          command: ls -al
-
-      - run:
           name: Build image
           command: |
             docker build -t $FULL_IMAGE_NAME .
