@@ -15,7 +15,9 @@ workflows:
           repo: slack-counter
           tag: "latest,${CIRCLE_SHA1}"
       - aws-ecs/deploy-service-update:
+          requires:
+            - aws-ecr/build_and_push_image
           aws-region: AWS_DEFAULT_REGION
           family: "slack-counter-service"
           cluster-name: "slack-counter-cluster"
-          container-image-name-updates: "container=slack-counte--service,tag=${CIRCLE_SHA1}"
+          container-image-name-updates: "container=slack-counter-service,tag=${CIRCLE_SHA1}"
