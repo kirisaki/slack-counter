@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.13
-    working_directory: /go/src/github.com/kirisaki/slack-count
+    working_directory: /go/src/github.com/kirisaki/slack-counter
 
     steps:
       - checkout
