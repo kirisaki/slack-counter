@@ -10,6 +10,6 @@ workflows:
           account-url: ECR_URL
           aws-access-key-id: ACCESS_KEY_ID
           aws-secret-access-key: SECRET_ACCESS_KEY
-          region: AWS_REGION
+          region: AWS_DEFAULT_REGION
           repo: slack-counter
           tag: "latest,${CIRCLE_SHA1}"
