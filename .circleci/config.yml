@@ -17,9 +17,7 @@ workflows:
       - aws-ecs/deploy-service-update:
           requires:
             - aws-ecr/build-and-push-image
-          aws-region: AWS_DEFAULT_REGION
-          aws-access-key-id: ACCESS_KEY_ID
-          aws-secret-access-key: SECRET_ACCESS_KEY
+          aws-region: "${AWS_DEFAULT_REGION}"
           family: "slack-counter-service"
           cluster-name: "slack-counter-cluster"
           container-image-name-updates: "container=slack-counter-service,tag=${CIRCLE_SHA1}"
