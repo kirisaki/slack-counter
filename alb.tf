@@ -12,7 +12,7 @@ resource "aws_lb_target_group" "group" {
   vpc_id   = aws_vpc.vpc.id
 }
 
-resource "aws_lb_listener" "listener-443" {
+resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.alb.arn
   port              = "443"
   protocol          = "HTTPS"

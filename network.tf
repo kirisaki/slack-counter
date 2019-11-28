@@ -19,3 +19,24 @@ resource "aws_internet_gateway" "gw" {
 resource "aws_eip" "eip" {
   vpc = true
 }
+
+resource "aws_nat_gateway" "nat_gw" {
+  allocation_id = aws_eip.eip.id
+  subnet_id     = aws_subnet.subnets.0.id
+  depends_on    = [aws_internet_gateway.gw]
+}
+
+resource "aws_route_table" "route" {
+  vpc_id = aws_vpc.vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+}
+
+resource "aws_route_table_association" "pub" {
+  count          = length(var.az_suffixies)
+  route_table_id = aws_route_table.route.id
+  subnet_id      = element(aws_subnet.subnets.*.id, count.index)
+}
