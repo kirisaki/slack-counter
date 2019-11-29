@@ -1,4 +1,5 @@
-output "bastion" {
-  value = aws_instance.bastion.public_dns
+output "server" {
+  value = aws_instance.server.public_dns
 }
+
 

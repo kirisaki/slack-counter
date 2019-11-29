@@ -36,3 +36,7 @@ variable "key_file" {
 variable "key_name" {
   type = string
 }
+
+variable "zone_id" {
+  type = string
+}

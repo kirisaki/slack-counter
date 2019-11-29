@@ -1,9 +1,9 @@
-resource "aws_instance" "bastion" {
+resource "aws_instance" "server" {
   ami                         = var.ami
   instance_type               = "t2.nano"
-  associate_public_ip_address = true
   subnet_id                   = aws_subnet.pub.id
-  vpc_security_group_ids      = [aws_security_group.ssh.id]
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.web.id]
   key_name                    = var.key_name
 
   connection {
