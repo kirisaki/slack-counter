@@ -1,0 +1,9 @@
+influxdb:
+  image: influxdb:1.7.9
+
+slack-counter:
+  build: .
+  links:
+    - influxdb:influxdb
+  ports:
+    - "8000:80"
