@@ -6,4 +6,4 @@ slack-counter:
   links:
     - influxdb:influxdb
   ports:
-    - "${SLACK_COUNTER}:80"
+    - "80:8000"
