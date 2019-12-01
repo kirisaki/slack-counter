@@ -12,3 +12,6 @@ slack-counter:
   environment:
     - SLACK_TOKEN
     - SLACK_VERIFY_TOKEN
+    - INFLUX_DB_URL=http://influxdb:8086
+    - SERVER_PORT=8080
+    - INFLUX_DB_NAME=test
