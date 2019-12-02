@@ -1,9 +1,17 @@
 influxdb:
   image: influxdb:1.7.9
+  ports:
+    - 8086:8086
 
 slack-counter:
   build: .
   links:
     - influxdb:influxdb
   ports:
-    - "80:8000"
+    - "${SERVER_PORT}:${SERVER_PORT}"
+  environment:
+    - SLACK_TOKEN
+    - SLACK_VERIFY_TOKEN
+    - INFLUX_DB_URL=http://influxdb:8086
+    - SERVER_PORT=8080
+    - INFLUX_DB_NAME=test

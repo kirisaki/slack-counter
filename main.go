@@ -11,8 +11,11 @@ import (
 	"strconv"
 
 	_ "github.com/influxdata/influxdb1-client" 
-	client "github.com/influxdata/influxdb1-client/v2"
+	influxdb "github.com/influxdata/influxdb1-client/v2"
 
+	redis "github.com/go-redis/redis/v7"
+
+	//"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
 
 )
@@ -20,8 +23,9 @@ import (
 type Setting struct {
 	SlackToken string
 	SlackVerifyToken string
-	InfluxDBURL string
+	InfluxDB influxdb.Client
 	InfluxDBName string
+	Redis *redis.Client
 }
 
 type DailyResponse struct {
@@ -56,19 +60,13 @@ func (s Setting)eventHandler(w http.ResponseWriter, r *http.Request) {
 		innerEvent := eventsAPIEvent.InnerEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.MessageEvent:
-			s.measure(ev)
+			s.measure(ev, eventsAPIEvent.TeamID)
 		}
 	}
 }
 
-func (s Setting) measure(ev *slackevents.MessageEvent){
-	c, err := client.NewHTTPClient(client.HTTPConfig{Addr: s.InfluxDBURL})
-	if err != nil {
-		log.Print(err)
-	}
-	defer c.Close()
-
-	bp, err := client.NewBatchPoints(client.BatchPointsConfig{
+func (s Setting) measure(ev *slackevents.MessageEvent, team string){
+	bp, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
 		Database: "test",
 		Precision: "us",
 	})
@@ -88,19 +86,20 @@ func (s Setting) measure(ev *slackevents.MessageEvent){
 		return
 	}
 	ts := time.Unix(sec, nsec)
-	tags := map[string]string{"channel": ev.Channel}
+	tags := map[string]string{"team": team}
 	fields := map[string]interface{}{
 		"user": ev.User,
+		"channel": ev.Channel,
 	}
 
-	pt, err := client.NewPoint("activity", tags, fields, ts)
+	pt, err := influxdb.NewPoint("activity", tags, fields, ts)
 	if err != nil {
 		log.Print(err)
 	}
 	bp.AddPoint(pt)
 
 	log.Print("write measurement")
-	er := c.Write(bp)
+	er := s.InfluxDB.Write(bp)
 	if er != nil {
 		log.Print(er)
 	}
@@ -130,20 +129,33 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	start := end.Add(time.Hour * -24 * time.Duration(days))
 	log.Print(start)
 
-	c, err := client.NewHTTPClient(client.HTTPConfig{Addr: s.InfluxDBURL})
-	if err != nil {
-		log.Print(err)
-	}
-	defer c.Close()
-
-	qstr := "SELECT COUNT() FROM \"activity\""
-	q := client.NewQuery(qstr, s.InfluxDBName, "us")
-	if resp, err := c.Query(q); err == nil && resp.Error() == nil {
+	qstr := "SELECT COUNT(\"user\") FROM \"activity\""
+	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
+	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
 		log.Print(resp.Results)
 	} else {
-		log.Print(err)
-		log.Print(resp.Error())
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print(resp.Error())
+		}
 	}
+}
+
+func (s Setting)initialize(){
+	qstr := "CREATE DATABASE " + s.InfluxDBName
+	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
+	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
+		log.Print(resp.Results)
+	} else {
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print(resp.Error())
+		}
+	}
+	ks := s.Redis.Keys("*")
+	log.Print(ks.Val())
 }
 
 func main(){
@@ -157,14 +169,19 @@ func main(){
 		log.Fatal("set SLACK_VERIY_TOKEN")
 	}
 
-	u := os.Getenv("INFLUX_DB_URL")
-	if u == "" {
-		log.Fatal("set INFLUX_DB_URL")
+	iu := os.Getenv("INFLUX_DB_URL")
+	if iu == "" {
+		iu = "http://localhost:8086"
+	}
+
+	ru := os.Getenv("INFLUX_DB_URL")
+	if ru == "" {
+		ru = "localhost:6379"
 	}
 
 	p := os.Getenv("SERVER_PORT")
 	if p == "" {
-		log.Fatal("set SERVER_PORT")
+		p = "8080"
 	}
 
 	db := os.Getenv("INFLUX_DB_NAME")
@@ -182,17 +199,32 @@ func main(){
 		log.Fatal("set DASHBOARD_PASS")
 	}
 */
-	setting := Setting{
+	ic, err := influxdb.NewHTTPClient(influxdb.HTTPConfig{Addr: iu})
+	if err != nil {
+		log.Print(err)
+	}
+	defer ic.Close()
+	rc := redis.NewClient(&redis.Options{
+		Addr: ru,
+		Password: "",
+		DB: 0,
+	})
+	defer rc.Close()
+	s := Setting{
 		SlackToken: t,
 		SlackVerifyToken: vt,
-		InfluxDBURL: u,
 		InfluxDBName: db,
+		InfluxDB: ic,
+		Redis: rc,
 	}
-	http.HandleFunc("/event", setting.eventHandler)
-	http.HandleFunc("/query", setting.queryHandler)
 
-	err := http.ListenAndServe(":" + p, nil)
-	if err != nil {
-		log.Fatal(err)
+	s.initialize()
+
+	http.HandleFunc("/event", s.eventHandler)
+	http.HandleFunc("/query", s.queryHandler)
+
+	err0 := http.ListenAndServe(":" + p, nil)
+	if err0 != nil {
+		log.Fatal(err0)
 	}
 }
