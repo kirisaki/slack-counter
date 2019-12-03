@@ -23,6 +23,7 @@ import (
 
 type Setting struct {
 	Slack *slack.Client
+	SlackToken string
 	SlackVerifyToken string
 	InfluxDB influxdb.Client
 	InfluxDBName string
@@ -146,7 +147,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 
 	qstr := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='" +
 		s.TeamID + "'AND \"channel\"='" + s.ChannelID +
-		"' AND " +
+		//"' AND " +
 		"' GROUP BY time(1h)"
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
@@ -193,53 +194,61 @@ func (s Setting)initialize(){
 		}
 	}
 
-	/*
 	if i < 1000 {
-		params := slack.NewHistoryParameters()
-		params.Count = 1000
-		hist, err := s.Slack.GetChannelHistory(s.ChannelID, params)
+		body := bytes.NewBufferString("token=" + s.SlackToken + "&channel=" + s.ChannelID)
+		resp, err := http.Post("https://slack.com/api/channels.history", "application/x-www-form-urlencoded", body)
 		if err != nil {
 			log.Fatal(err)
-		} else {
-			bp, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-				Database: s.InfluxDBName,
-				Precision: "us",
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			for _, m := range(hist.Messages) {
-				ut := strings.Split(m.Timestamp, ".")
-				if len(ut) != 2 {
-					log.Fatal("invalid timestamp")
-				}
-				sec, err0 := strconv.ParseInt(ut[0], 10, 64)
-				nsec, err1 := strconv.ParseInt(ut[1], 10, 64)
-				if err0 != nil || err1 != nil {
-					log.Fatal("failed parsing number")
-					return
-				}
-				ts := time.Unix(sec, nsec)
-				tags := map[string]string{"team": m.Team}
-				fields := map[string]interface{}{
-					"user": m.User,
-					"channel": m.Channel,
-				}
-
-				pt, err := influxdb.NewPoint("activity", tags, fields, ts)
-				if err != nil {
-					log.Print(err)
-				}
-				bp.AddPoint(pt)
-			}
-			er := s.InfluxDB.Write(bp)
-			if er != nil {
-				log.Fatal(er)
+		}
+		defer resp.Body.Close()
+		var hist struct {
+			Messages []struct {
+				User string `json:"user"`
+				Timestamp string `json:"ts"`
 			}
 		}
+		dec := json.NewDecoder(resp.Body)
+		if err := dec.Decode(&hist); err != nil {
+			log.Fatal(err)
+		}
+
+		bp, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+			Database: s.InfluxDBName,
+			Precision: "us",
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, m := range(hist.Messages) {
+			ut := strings.Split(m.Timestamp, ".")
+			if len(ut) != 2 {
+				log.Fatal("invalid timestamp")
+			}
+			sec, err0 := strconv.ParseInt(ut[0], 10, 64)
+			nsec, err1 := strconv.ParseInt(ut[1], 10, 64)
+			if err0 != nil || err1 != nil {
+				log.Fatal("failed parsing number")
+				return
+			}
+			ts := time.Unix(sec, nsec)
+			tags := map[string]string{"team": s.TeamID}
+			fields := map[string]interface{}{
+				"user": m.User,
+				"channel": s.ChannelID,
+			}
+
+			pt, err := influxdb.NewPoint("activity", tags, fields, ts)
+			if err != nil {
+				log.Print(err)
+			}
+			bp.AddPoint(pt)
+		}
+		er := s.InfluxDB.Write(bp)
+		if er != nil {
+			log.Fatal(er)
+		}
 	}
-        */
 }
 
 func main(){
@@ -289,6 +298,7 @@ func main(){
 
 	s := Setting{
 		Slack: slack.New(t),
+		SlackToken: t,
 		SlackVerifyToken: vt,
 		InfluxDBName: inf,
 		InfluxDB: ic,
