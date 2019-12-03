@@ -1,3 +1,4 @@
 slack-counter
 .terraform/
 *.tfvars
+*.db
