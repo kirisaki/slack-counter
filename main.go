@@ -13,7 +13,8 @@ import (
 	_ "github.com/influxdata/influxdb1-client" 
 	influxdb "github.com/influxdata/influxdb1-client/v2"
 
-	redis "github.com/go-redis/redis/v7"
+	"github.com/jinzhu/gorm"
+	_ "github.com/mattn/go-sqlite3"
 
 	//"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
@@ -25,7 +26,13 @@ type Setting struct {
 	SlackVerifyToken string
 	InfluxDB influxdb.Client
 	InfluxDBName string
-	Redis *redis.Client
+	DB *gorm.DB
+}
+
+type Team struct {
+	gorm.Model
+	TeamId string
+	ChannelId string
 }
 
 type DailyResponse struct {
@@ -40,7 +47,14 @@ func (s Setting)eventHandler(w http.ResponseWriter, r *http.Request) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r.Body)
 	body := buf.String()
-	eventsAPIEvent, e := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionVerifyToken(&slackevents.TokenComparator{VerificationToken: s.SlackVerifyToken}))
+	eventsAPIEvent, e := slackevents.ParseEvent(
+		json.RawMessage(body),
+		slackevents.OptionVerifyToken(
+			&slackevents.TokenComparator{
+				VerificationToken: s.SlackVerifyToken,
+			},
+		),
+	)
 	if e != nil {
 		log.Print(e)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -109,7 +123,6 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	year := r.URL.Query().Get("year")
 	month := r.URL.Query().Get("month")
 	day := r.URL.Query().Get("day")
-	//channel := r.URL.Query().Get("channel")
 	end, err := time.Parse("2006-1-2", year + "-" + month + "-" + day)
 	if err != nil {
 		log.Print(err)
@@ -117,6 +130,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
 	}
+
 	days, err := strconv.ParseInt(r.URL.Query().Get("day"), 10, 64)
 	if err != nil {
 		log.Print(err)
@@ -125,11 +139,24 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(resp)
 		return
 	}
-
 	start := end.Add(time.Hour * -24 * time.Duration(days))
 	log.Print(start)
 
-	qstr := "SELECT COUNT(\"user\") FROM \"activity\""
+	team := r.URL.Query().Get("team")
+	if team == "" {
+		resp, _ := json.Marshal(ErrorResponse{"empty team"})
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(resp)
+	}
+	channel := r.URL.Query().Get("channel")
+	if channel == "" {
+		resp, _ := json.Marshal(ErrorResponse{"empty channel"})
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(resp)
+	}
+
+
+	qstr := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='"+ team + "'AND \"channel\"='" + channel + "'"
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
 		log.Print(resp.Results)
@@ -154,8 +181,8 @@ func (s Setting)initialize(){
 			log.Print(resp.Error())
 		}
 	}
-	ks := s.Redis.Keys("*")
-	log.Print(ks.Val())
+
+	s.DB.AutoMigrate(&Team{})
 }
 
 func main(){
@@ -184,39 +211,32 @@ func main(){
 		p = "8080"
 	}
 
-	db := os.Getenv("INFLUX_DB_NAME")
-	if db == "" {
+	inf := os.Getenv("INFLUX_DB_NAME")
+	if inf == "" {
 		log.Fatal("set INFLUX_DB_NAME")
 	}
-	/*
-	user := os.Getenv("DASHBOARD_USER")
-	if user == "" {
-		log.Fatal("set DASHBOARD_USER")
-	}
 
-	pass := os.Getenv("DASHBOARD_PASS")
-	if pass == "" {
-		log.Fatal("set DASHBOARD_PASS")
-	}
-*/
 	ic, err := influxdb.NewHTTPClient(influxdb.HTTPConfig{Addr: iu})
 	if err != nil {
-		log.Print(err)
+		log.Fatal(err)
 	}
 	defer ic.Close()
-	rc := redis.NewClient(&redis.Options{
-		Addr: ru,
-		Password: "",
-		DB: 0,
-	})
-	defer rc.Close()
+
+	db, err := gorm.Open("sqlite3", "test.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	s := Setting{
 		SlackToken: t,
 		SlackVerifyToken: vt,
-		InfluxDBName: db,
+		InfluxDBName: inf,
 		InfluxDB: ic,
-		Redis: rc,
+		DB: db,
 	}
+
+	
 
 	s.initialize()
 
