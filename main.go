@@ -16,17 +16,19 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 
-	//"github.com/nlopes/slack"
+	"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
 
 )
 
 type Setting struct {
-	SlackToken string
+	Slack *slack.Client
 	SlackVerifyToken string
 	InfluxDB influxdb.Client
 	InfluxDBName string
 	DB *gorm.DB
+	TeamID string
+	ChannelID string
 }
 
 type Team struct {
@@ -81,7 +83,7 @@ func (s Setting)eventHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s Setting) measure(ev *slackevents.MessageEvent, team string){
 	bp, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-		Database: "test",
+		Database: s.InfluxDBName,
 		Precision: "us",
 	})
 	if err != nil {
@@ -142,24 +144,14 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	start := end.Add(time.Hour * -24 * time.Duration(days))
 	log.Print(start)
 
-	team := r.URL.Query().Get("team")
-	if team == "" {
-		resp, _ := json.Marshal(ErrorResponse{"empty team"})
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
-	}
-	channel := r.URL.Query().Get("channel")
-	if channel == "" {
-		resp, _ := json.Marshal(ErrorResponse{"empty channel"})
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
-	}
-
-
-	qstr := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='"+ team + "'AND \"channel\"='" + channel + "'"
+	qstr := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='" +
+		s.TeamID + "'AND \"channel\"='" + s.ChannelID +
+		"' AND " +
+		"' GROUP BY time(1h)"
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
-		log.Print(resp.Results)
+		body, _ := json.Marshal(resp)
+		w.Write(body)
 	} else {
 		if err != nil {
 			log.Print(err)
@@ -170,9 +162,9 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Setting)initialize(){
-	qstr := "CREATE DATABASE " + s.InfluxDBName
-	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
-	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
+	qstr0 := "CREATE DATABASE " + s.InfluxDBName
+	q0:= influxdb.NewQuery(qstr0, s.InfluxDBName, "us")
+	if resp, err := s.InfluxDB.Query(q0); err == nil && resp.Error() == nil {
 		log.Print(resp.Results)
 	} else {
 		if err != nil {
@@ -181,8 +173,73 @@ func (s Setting)initialize(){
 			log.Print(resp.Error())
 		}
 	}
-
 	s.DB.AutoMigrate(&Team{})
+
+	qstr1 := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='" +
+		s.TeamID + "'AND \"channel\"='" + s.ChannelID + "'"
+	q1 := influxdb.NewQuery(qstr1, s.InfluxDBName, "us")
+	i := 0
+	if resp, err := s.InfluxDB.Query(q1); err == nil && resp.Error() == nil {
+		for _, r := range(resp.Results) {
+			for _, s := range(r.Series) {
+				i += len(s.Values)
+			}
+		}
+	} else {
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print(resp.Error())
+		}
+	}
+
+	/*
+	if i < 1000 {
+		params := slack.NewHistoryParameters()
+		params.Count = 1000
+		hist, err := s.Slack.GetChannelHistory(s.ChannelID, params)
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			bp, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+				Database: s.InfluxDBName,
+				Precision: "us",
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			for _, m := range(hist.Messages) {
+				ut := strings.Split(m.Timestamp, ".")
+				if len(ut) != 2 {
+					log.Fatal("invalid timestamp")
+				}
+				sec, err0 := strconv.ParseInt(ut[0], 10, 64)
+				nsec, err1 := strconv.ParseInt(ut[1], 10, 64)
+				if err0 != nil || err1 != nil {
+					log.Fatal("failed parsing number")
+					return
+				}
+				ts := time.Unix(sec, nsec)
+				tags := map[string]string{"team": m.Team}
+				fields := map[string]interface{}{
+					"user": m.User,
+					"channel": m.Channel,
+				}
+
+				pt, err := influxdb.NewPoint("activity", tags, fields, ts)
+				if err != nil {
+					log.Print(err)
+				}
+				bp.AddPoint(pt)
+			}
+			er := s.InfluxDB.Write(bp)
+			if er != nil {
+				log.Fatal(er)
+			}
+		}
+	}
+        */
 }
 
 func main(){
@@ -190,30 +247,33 @@ func main(){
 	if t == "" {
 		log.Fatal("set SLACK_TOKEN")
 	}
-
 	vt := os.Getenv("SLACK_VERIFY_TOKEN")
 	if vt == "" {
 		log.Fatal("set SLACK_VERIY_TOKEN")
 	}
-
 	iu := os.Getenv("INFLUX_DB_URL")
 	if iu == "" {
 		iu = "http://localhost:8086"
 	}
-
 	ru := os.Getenv("INFLUX_DB_URL")
 	if ru == "" {
 		ru = "localhost:6379"
 	}
-
 	p := os.Getenv("SERVER_PORT")
 	if p == "" {
 		p = "8080"
 	}
-
 	inf := os.Getenv("INFLUX_DB_NAME")
 	if inf == "" {
 		log.Fatal("set INFLUX_DB_NAME")
+	}
+	team := os.Getenv("TEAM_ID")
+	if team == "" {
+		log.Fatal("set TEAM_ID")
+	}
+	channel := os.Getenv("CHANNEL_ID")
+	if channel == "" {
+		log.Fatal("set CHANNEL_ID")
 	}
 
 	ic, err := influxdb.NewHTTPClient(influxdb.HTTPConfig{Addr: iu})
@@ -221,7 +281,6 @@ func main(){
 		log.Fatal(err)
 	}
 	defer ic.Close()
-
 	db, err := gorm.Open("sqlite3", "test.db")
 	if err != nil {
 		log.Fatal(err)
@@ -229,11 +288,13 @@ func main(){
 	defer db.Close()
 
 	s := Setting{
-		SlackToken: t,
+		Slack: slack.New(t),
 		SlackVerifyToken: vt,
 		InfluxDBName: inf,
 		InfluxDB: ic,
 		DB: db,
+		TeamID: team,
+		ChannelID: channel,
 	}
 
 	
