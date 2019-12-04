@@ -38,8 +38,13 @@ type Team struct {
 	ChannelId string
 }
 
-type DailyResponse struct {
-	Daily [][][]int `json:"daily"`
+type DailyActivity struct {
+	Start int `json:"start"`
+	Activity []int `json:"activity"`
+}
+
+type Activities struct {
+	Activities []DailyActivity `json:"activities"`
 }
 
 type ErrorResponse struct {
@@ -134,7 +139,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(resp)
 	}
 
-	days, err := strconv.ParseInt(r.URL.Query().Get("days"), 10, 64)
+	duration, err := strconv.ParseInt(r.URL.Query().Get("duration"), 10, 64)
 	if err != nil {
 		log.Print(err)
 		resp, _ := json.Marshal(ErrorResponse{"invalid query: " + r.URL.RawQuery})
@@ -142,7 +147,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(resp)
 		return
 	}
-	start := end.Add(time.Hour * -24 * time.Duration(days))
+	start := end.Add(time.Hour * -24 * time.Duration(duration))
 	log.Print(start)
 
 	qstr := "SELECT COUNT(\"user\") FROM activity WHERE" +
@@ -152,7 +157,39 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	log.Print(qstr)
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
-		body, _ := json.Marshal(resp)
+		results := []DailyActivity{}
+		for _, r := range(resp.Results) {
+			for _, s := range(r.Series) {
+				acts := []int{}
+				ts := 0
+				for i, v := range(s.Values) {
+					if i % 24 == 0 {
+						if v0, ok := v[0].(json.Number); ok {
+							x, _ := v0.Int64()
+							ts = int(x) / 1000
+						} else {
+							log.Print("invalid type of timestamp")
+							return
+						}
+					}
+					if v1, ok := v[1].(json.Number); ok {
+						x, _ := v1.Int64()
+						acts = append(acts, int(x))
+					} else {
+						log.Print("invalid type of activity")
+						return
+					}
+					if i % 24 == 23 {
+						results = append(results, DailyActivity{
+							Start: ts,
+							Activity: acts,
+						})
+						acts = []int{}
+					}
+				}
+			}
+		}
+		body, _ := json.Marshal(Activities{Activities: results})
 		w.Write(body)
 	} else {
 		if err != nil {
@@ -196,6 +233,7 @@ func (s Setting)initialize(){
 	}
 
 	if i < 1000 {
+		log.Print("insert initial measurements from channel.history")
 		body := bytes.NewBufferString("token=" + s.SlackToken + "&channel=" + s.ChannelID)
 		resp, err := http.Post("https://slack.com/api/channels.history", "application/x-www-form-urlencoded", body)
 		if err != nil {
