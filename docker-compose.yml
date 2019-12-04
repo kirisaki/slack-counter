@@ -13,5 +13,7 @@ slack-counter:
     - SLACK_TOKEN
     - SLACK_VERIFY_TOKEN
     - INFLUX_DB_URL=http://influxdb:8086
-    - SERVER_PORT=8080
+    - SERVER_PORT
     - INFLUX_DB_NAME=test
+    - TEAM_ID
+    - CHANNEL_ID
