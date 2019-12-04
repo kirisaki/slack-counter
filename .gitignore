@@ -2,3 +2,6 @@ slack-counter
 .terraform/
 *.tfvars
 *.db
+node_modules/
+elm-stuff/
+dist/
