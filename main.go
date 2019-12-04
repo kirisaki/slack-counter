@@ -134,7 +134,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(resp)
 	}
 
-	days, err := strconv.ParseInt(r.URL.Query().Get("day"), 10, 64)
+	days, err := strconv.ParseInt(r.URL.Query().Get("days"), 10, 64)
 	if err != nil {
 		log.Print(err)
 		resp, _ := json.Marshal(ErrorResponse{"invalid query: " + r.URL.RawQuery})
@@ -145,10 +145,11 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	start := end.Add(time.Hour * -24 * time.Duration(days))
 	log.Print(start)
 
-	qstr := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='" +
-		s.TeamID + "'AND \"channel\"='" + s.ChannelID +
-		//"' AND " +
-		"' GROUP BY time(1h)"
+	qstr := "SELECT COUNT(\"user\") FROM activity WHERE" +
+		" \"team\"='" + s.TeamID + "' AND \"channel\"='" + s.ChannelID + "' " +
+		"AND '" + start.Format(time.RFC3339) + "' <= time AND time <= '" + end.Format(time.RFC3339) +"' " +
+		"GROUP BY time(1h)"
+	log.Print(qstr)
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
 		body, _ := json.Marshal(resp)
