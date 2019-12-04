@@ -13,9 +13,6 @@ import (
 	_ "github.com/influxdata/influxdb1-client" 
 	influxdb "github.com/influxdata/influxdb1-client/v2"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/nlopes/slack"
 	"github.com/nlopes/slack/slackevents"
 
@@ -27,15 +24,8 @@ type Setting struct {
 	SlackVerifyToken string
 	InfluxDB influxdb.Client
 	InfluxDBName string
-	DB *gorm.DB
 	TeamID string
 	ChannelID string
-}
-
-type Team struct {
-	gorm.Model
-	TeamId string
-	ChannelId string
 }
 
 type DailyActivity struct {
@@ -212,7 +202,6 @@ func (s Setting)initialize(){
 			log.Print(resp.Error())
 		}
 	}
-	s.DB.AutoMigrate(&Team{})
 
 	qstr1 := "SELECT COUNT(\"user\") FROM \"activity\" WHERE \"team\"='" +
 		s.TeamID + "'AND \"channel\"='" + s.ChannelID + "'"
@@ -329,11 +318,6 @@ func main(){
 		log.Fatal(err)
 	}
 	defer ic.Close()
-	db, err := gorm.Open("sqlite3", "test.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
 
 	s := Setting{
 		Slack: slack.New(t),
@@ -341,7 +325,6 @@ func main(){
 		SlackVerifyToken: vt,
 		InfluxDBName: inf,
 		InfluxDB: ic,
-		DB: db,
 		TeamID: team,
 		ChannelID: channel,
 	}
