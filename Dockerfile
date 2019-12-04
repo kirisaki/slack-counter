@@ -9,6 +9,8 @@ RUN go build -o=/build/slack-counter
 FROM alpine:3.10.2
 
 COPY --from=builder /build/slack-counter /build/slack-counter
+RUN mkdir /client
+COPY ./dist /client
 RUN chmod u+x /build/slack-counter
 
 ENTRYPOINT ["/build/slack-counter"]

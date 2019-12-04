@@ -335,6 +335,12 @@ func main(){
 
 	http.HandleFunc("/event", s.eventHandler)
 	http.HandleFunc("/query", s.queryHandler)
+	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "/client/index.html")
+	})
+	http.HandleFunc("/main.js", func (w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "/client/index.html")
+	})
 
 	err0 := http.ListenAndServe(":" + p, nil)
 	if err0 != nil {
