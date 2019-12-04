@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"strconv"
+	"math"
 
 	_ "github.com/influxdata/influxdb1-client" 
 	influxdb "github.com/influxdata/influxdb1-client/v2"
@@ -191,6 +192,15 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Setting)initialize(){
+
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Second * time.Duration(math.Pow(2, float64(i))))
+		_, _, err :=  s.InfluxDB.Ping(time.Second)
+		if err == nil {
+			break
+		}
+	}
+
 	qstr0 := "CREATE DATABASE " + s.InfluxDBName
 	q0:= influxdb.NewQuery(qstr0, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q0); err == nil && resp.Error() == nil {
@@ -336,10 +346,12 @@ func main(){
 	http.HandleFunc("/event", s.eventHandler)
 	http.HandleFunc("/query", s.queryHandler)
 	http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-type", "text/html")
 		http.ServeFile(w, r, "/client/index.html")
 	})
 	http.HandleFunc("/main.js", func (w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "/client/index.html")
+		w.Header().Add("Content-type", "application/javascript")
+		http.ServeFile(w, r, "/client/main.js")
 	})
 
 	err0 := http.ListenAndServe(":" + p, nil)
