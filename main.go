@@ -124,10 +124,8 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	day := r.URL.Query().Get("day")
 	end, err := time.Parse("2006-1-2", year + "-" + month + "-" + day)
 	if err != nil {
-		log.Print(err)
-		resp, _ := json.Marshal(ErrorResponse{"invalid query: " + r.URL.RawQuery})
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		now := time.Now()
+		end = now.Truncate(time.Hour * 24)
 	}
 
 	duration, err := strconv.ParseInt(r.URL.Query().Get("duration"), 10, 64)

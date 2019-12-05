@@ -8,7 +8,9 @@ import Html.Events exposing (..)
 import Maybe
 import Url exposing (Url)
 import Url.Parser as UP exposing ((</>), Parser)
-
+import Http
+import Json.Decode as JD
+import Task
 
 main : Program () Model Msg
 main =
@@ -21,6 +23,12 @@ main =
         , onUrlChange = (\u -> NoOp)
         }
 
+type alias Activity =
+    { start : Int
+    , activity : Int
+    }
+
+type alias Activities = List Activity
 
 type alias Model =
     { key : Key
@@ -39,8 +47,21 @@ type Language
 
 
 type Msg
-    = NoOp
+    = GetActivities (Result Http.Error Activities)
+    | NoOp
 
+getActivity : Cmd Msg
+getActivity =
+    let
+        dec = JD.field "activities" (JD.list acdec)
+        acdec = JD.map2 Activity
+                (JD.field "start" JD.int)
+                (JD.field "activity" JD.int)
+    in
+        Http.get
+            { url = "http://influxdb:8086/query?duration=14"
+            , expect = Http.expectJson GetActivities dec
+            }
 
 init : () -> Url -> Key -> ( Model, Cmd Msg )
 init _ _ k =
@@ -71,7 +92,7 @@ view model =
         [ div [ classList [ ("container", True)
                           ]
               ]
-              [ h1 [] [ text "nyaan" ]
+              [ h1 [] [ text "nyaaaan" ]
               ]
         ]
     }
