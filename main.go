@@ -300,10 +300,6 @@ func main(){
 	if iu == "" {
 		iu = "http://localhost:8086"
 	}
-	ru := os.Getenv("INFLUX_DB_URL")
-	if ru == "" {
-		ru = "localhost:6379"
-	}
 	p := os.Getenv("SERVER_PORT")
 	if p == "" {
 		p = "8080"

@@ -32,7 +32,8 @@ type alias Activities = List Activity
 
 type alias Model =
     { key : Key
-    , route: Route
+    , route : Route
+    , activities : Activities
     }
 
 
@@ -50,8 +51,8 @@ type Msg
     = GetActivities (Result Http.Error Activities)
     | NoOp
 
-getActivity : Cmd Msg
-getActivity =
+getActivities : Cmd Msg
+getActivities =
     let
         dec = JD.field "activities" (JD.list acdec)
         acdec = JD.map2 Activity
@@ -59,7 +60,7 @@ getActivity =
                 (JD.field "activity" JD.int)
     in
         Http.get
-            { url = "http://influxdb:8086/query?duration=14"
+            { url = "/query?duration=14"
             , expect = Http.expectJson GetActivities dec
             }
 
@@ -67,13 +68,20 @@ init : () -> Url -> Key -> ( Model, Cmd Msg )
 init _ _ k =
     ( { key = k
       , route = Index
+      , activities = []
       }
-    , Cmd.none
+    , getActivities
     )
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case ( msg, model.route ) of
+    case msg of
+        GetActivities res ->
+            case res of
+                Ok a ->
+                    ({ model | activities = a } , Cmd.none)
+                Err e ->
+                    (model, Cmd.none)
         _ ->
             ( model
             , Cmd.none
@@ -92,7 +100,7 @@ view model =
         [ div [ classList [ ("container", True)
                           ]
               ]
-              [ h1 [] [ text "nyaaaan" ]
+              [ h1 [] [ text "nyaan" ]
               ]
         ]
     }

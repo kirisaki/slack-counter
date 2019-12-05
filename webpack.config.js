@@ -62,8 +62,9 @@ module.exports = () => ({
     port: 8001,
 
     proxy: {
-      '/api': {
-        target: 'http://localhost:8080'
+      '/query': {
+        target: 'http://localhost:8080/query',
+        pathRewrite: {'^/query' : ''}
       }
     }
   }
