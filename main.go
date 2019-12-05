@@ -155,7 +155,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 					if i % 24 == 0 {
 						if v0, ok := v[0].(json.Number); ok {
 							x, _ := v0.Int64()
-							ts = int(x) / 1000
+							ts = int(x) / 1000 / 1000
 						} else {
 							log.Print("invalid type of timestamp")
 							return
