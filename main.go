@@ -193,7 +193,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s Setting)initialize(){
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		time.Sleep(time.Second * time.Duration(math.Pow(2, float64(i))))
 		_, _, err :=  s.InfluxDB.Ping(time.Second)
 		if err == nil {

@@ -11,7 +11,7 @@ COPY . .
 RUN rm -rf node_modules
 RUN npm i
 RUN npx webpack --production
-COPY ./dist /client
+RUN mv ./dist/* /client
 
 FROM alpine:3.10.2
 COPY --from=server /build/slack-counter /build/slack-counter
