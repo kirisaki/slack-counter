@@ -126,6 +126,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		now := time.Now()
 		end = now.Truncate(time.Hour * 24)
+		end = end.Add(time.Hour * 24 - time.Hour * 9)
 	}
 
 	duration, err := strconv.ParseInt(r.URL.Query().Get("duration"), 10, 64)
@@ -141,8 +142,9 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 
 	qstr := "SELECT COUNT(\"user\") FROM activity WHERE" +
 		" \"team\"='" + s.TeamID + "' AND \"channel\"='" + s.ChannelID + "' " +
-		"AND '" + start.Format(time.RFC3339) + "' <= time AND time <= '" + end.Format(time.RFC3339) +"' " +
-		"GROUP BY time(1h)"
+		"AND '" + start.Format(time.RFC3339) + "' <= time AND time <= '" +
+		end.Format(time.RFC3339) +
+		"' GROUP BY time(1h)"
 	log.Print(qstr)
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {

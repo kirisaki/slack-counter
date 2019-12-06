@@ -5,3 +5,4 @@ slack-counter
 node_modules/
 elm-stuff/
 dist/
+.env

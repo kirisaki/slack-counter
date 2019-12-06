@@ -103,9 +103,7 @@ view : Model -> Document Msg
 view model =
     { title = "slack-counter"
     , body =
-        [ div [ classList [ ("container", True)
-                          ]
-              ]
+        [ div [ class "container" ]
               [ h1 [] [ text "slack-counter" ]
               , table [ class "activity" ] [ thead [] ([td [] []] ++ (List.map (\m -> td [] [ text (String.fromInt m) ]) (List.range 0 23)))
                                            , tbody [] (rows model)]
