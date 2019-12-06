@@ -132,10 +132,10 @@ date mills =
                     Time.Oct -> "10"
                     Time.Nov -> "11"
                     Time.Dec -> "12"
-        day = Time.toDay Time.utc posix
-           
+        day0 = Time.toDay Time.utc posix
+        day = if day0 < 10 then "0" ++ String.fromInt day0 else String.fromInt day0
     in
-        text (String.fromInt year ++ "-" ++ month ++ "-" ++ String.fromInt day)
+        text (String.fromInt year ++ "-" ++ month ++ "-" ++ day)
 
 cells : List Int -> List (Html Msg)
 cells xs = List.map (\cell -> td [ class "cell" ] [ text (String.fromInt cell )]) xs

@@ -1,10 +1,18 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto&display=swap');
+
 h1 {
-  color: red;
+  padding: 1rem 0;
 }
 
 * {
   padding: 0;
   margin: 0;
+}
+
+body {
+  background-color: #22222a;
+  color: #eef;
+  font-family: 'Roboto', sans-serif
 }
 
 .activity {
@@ -26,6 +34,5 @@ td {
   position: absolite;
   width: 60rem;
   height: 40rem;
-  border: 1px solid black;
   margin: auto;
 }
