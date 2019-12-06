@@ -144,7 +144,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 		" \"team\"='" + s.TeamID + "' AND \"channel\"='" + s.ChannelID + "' " +
 		"AND '" + start.Format(time.RFC3339) + "' <= time AND time <= '" +
 		end.Format(time.RFC3339) +
-		"' GROUP BY time(1h)"
+		"' GROUP BY time(1h) tz('Asia/Tokyo')"
 	log.Print(qstr)
 	q := influxdb.NewQuery(qstr, s.InfluxDBName, "us")
 	if resp, err := s.InfluxDB.Query(q); err == nil && resp.Error() == nil {
@@ -154,7 +154,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 				acts := []int{}
 				ts := 0
 				for i, v := range(s.Values) {
-					if i % 24 == 0 {
+					if i % 24 == 23 {
 						if v0, ok := v[0].(json.Number); ok {
 							x, _ := v0.Int64()
 							ts = int(x) / 1000 / 1000
