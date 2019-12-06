@@ -170,7 +170,7 @@ func (s Setting) queryHandler(w http.ResponseWriter, r *http.Request) {
 						log.Print("invalid type of activity")
 						return
 					}
-					if i % 24 == 0 {
+					if i % 24 == 23 {
 						results = append(results, DailyActivity{
 							Start: ts,
 							Activity: acts,
